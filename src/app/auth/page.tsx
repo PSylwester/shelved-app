@@ -1,7 +1,9 @@
 // src/app/auth/page.tsx
 "use client";
 
-import { BookOpen, Mail, Lock, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { BookOpen, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import {
   SiGithub,
   SiGoogle,
@@ -9,12 +11,40 @@ import {
   SiApple,
 } from "@icons-pack/react-simple-icons";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const supabase = createClient();
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setErrorMsg("Błąd logowania: " + error.message);
+      setLoading(false);
+    } else {
+      // Sukces! Przekierowujemy do dashboardu
+      router.push("/dashboard");
+      router.refresh(); // Odświeżamy trasę, aby sprawdzić sesję
+    }
+  };
+
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-hidden bg-[#121A1D]">
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#FB722C] blur-[150px] opacity-10 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#9C2A0F] blur-[150px] opacity-10 pointer-events-none" />
+      {/* ... dekoracyjne gradienty ... */}
 
       <div className="relative w-full max-w-md">
         <div className="bg-[#1E292D]/80 backdrop-blur-xl rounded-3xl border border-[#9C2A0F]/30 p-8 shadow-2xl">
@@ -27,6 +57,7 @@ export default function LoginPage() {
             </span>
             Wróć do strony głównej
           </Link>
+
           <div className="text-center mb-8">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FB722C] text-[#121A1D] mb-4 shadow-lg shadow-[#FB722C]/20">
               <BookOpen className="h-6 w-6" />
@@ -34,12 +65,15 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-[#FAD3B1]">
               Witaj w Shelved.
             </h1>
-            <p className="text-[#FAD3B1]/50 text-sm mt-2">
-              Zaloguj się, aby zarządzać swoją półką.
-            </p>
           </div>
 
-          <form className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 rounded-xl mb-6 text-sm text-center bg-red-500/20 text-red-400 border border-red-500/30">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Email
@@ -47,9 +81,12 @@ export default function LoginPage() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="twoj@email.com"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
               </div>
             </div>
@@ -61,7 +98,7 @@ export default function LoginPage() {
                 </label>
                 <a
                   href="#"
-                  className="text-[10px] text-[#FAD3B1]/40 hover:text-[#FB722C] cursor-pointer"
+                  className="text-[10px] text-[#FAD3B1]/40 hover:text-[#FB722C]"
                 >
                   Zapomniałeś?
                 </a>
@@ -69,30 +106,27 @@ export default function LoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 ml-1">
-              <input
-                type="checkbox"
-                id="remember"
-                className="w-4 h-4 rounded border-[#9C2A0F]/40 bg-[#121A1D]/50 text-[#FB722C] focus:ring-[#FB722C]/50 accent-[#FB722C] cursor-pointer"
-              />
-              <label
-                htmlFor="remember"
-                className="text-xs text-[#FAD3B1]/60 cursor-pointer"
-              >
-                Zapamiętaj mnie
-              </label>
-            </div>
-
-            <button className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg shadow-[#FB722C]/10 hover:bg-[#FB722C]/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer">
-              Zaloguj się
-              <ArrowRight className="h-4 w-4" />
+            <button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Zaloguj się"
+              )}
+              {!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
 

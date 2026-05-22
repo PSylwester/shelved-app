@@ -1,7 +1,8 @@
-// src/app/auth/register/page.tsx
 "use client";
 
-import { BookOpen, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { useState } from "react"; // NOWE
+import { createClient } from "@/utils/supabase/client"; // NOWE
+import { BookOpen, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import {
   SiGithub,
   SiGoogle,
@@ -9,11 +10,61 @@ import {
   SiApple,
 } from "@icons-pack/react-simple-icons";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // NOWE
 
 export default function RegisterPage() {
+  // 1. NOWE: Stany dla pól formularza
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const supabase = createClient();
+  const router = useRouter();
+
+  // 2. NOWE: Funkcja obsługująca rejestrację
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    // Prosta walidacja haseł
+    if (password !== confirmPassword) {
+      setMessage("Hasła nie są identyczne!");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 12) {
+      setMessage("Hasło musi mieć minimum 12 znaków.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Przesyłamy nazwę użytkownika jako metadane
+        data: {
+          display_name: username,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setMessage("Błąd: " + error.message);
+    } else {
+      setMessage("Sukces! Sprawdź skrzynkę e-mail, aby potwierdzić konto.");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-hidden bg-[#121A1D]">
-      {/* Background Gradients */}
+    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-y-auto bg-[#121A1D]">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#FB722C] blur-[150px] opacity-10 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#9C2A0F] blur-[150px] opacity-10 pointer-events-none" />
 
@@ -28,6 +79,7 @@ export default function RegisterPage() {
             </span>
             Wróć do strony głównej
           </Link>
+
           <div className="text-center mb-8">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FB722C] text-[#121A1D] mb-4 shadow-lg shadow-[#FB722C]/20">
               <BookOpen className="h-6 w-6" />
@@ -38,8 +90,16 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <form className="space-y-4">
-            {/* Pole: Nazwa użytkownika */}
+          {/* Wyświetlanie komunikatów o błędach/sukcesach */}
+          {message && (
+            <div
+              className={`p-3 rounded-xl mb-6 text-sm text-center ${message.includes("Sukces") ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}
+            >
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Nazwa użytkownika
@@ -47,14 +107,16 @@ export default function RegisterPage() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   placeholder="np. moleksiazkowy"
                   className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
               </div>
             </div>
 
-            {/* Pole: Email */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Email
@@ -62,14 +124,16 @@ export default function RegisterPage() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="twoj@email.com"
                   className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
               </div>
             </div>
 
-            {/* Pole: Hasło */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Hasło
@@ -77,14 +141,16 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="minimum 12 znaków"
                   className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
               </div>
             </div>
 
-            {/* Pole: Powtórz Hasło */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Powtórz hasło
@@ -92,7 +158,10 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  required
                   type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="wpisz hasło ponownie"
                   className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
                 />
@@ -122,9 +191,17 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <button className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg shadow-[#FB722C]/10 hover:bg-[#FB722C]/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer">
-              Zarejestruj się
-              <ArrowRight className="h-4 w-4" />
+            <button
+              disabled={loading}
+              type="submit"
+              className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg shadow-[#FB722C]/10 hover:bg-[#FB722C]/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Zarejestruj się"
+              )}
+              {!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
 
