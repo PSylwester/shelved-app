@@ -1,17 +1,12 @@
-// src/app/auth/page.tsx
 "use client";
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { BookOpen, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
-import {
-  SiGithub,
-  SiGoogle,
-  SiFacebook,
-  SiApple,
-} from "@icons-pack/react-simple-icons";
+import { SiGoogle } from "@icons-pack/react-simple-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -22,6 +17,7 @@ export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
 
+  // Logowanie tradycyjne (Email + Hasło)
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -36,15 +32,34 @@ export default function LoginPage() {
       setErrorMsg("Błąd logowania: " + error.message);
       setLoading(false);
     } else {
-      // Sukces! Przekierowujemy do dashboardu
       router.push("/dashboard");
-      router.refresh(); // Odświeżamy trasę, aby sprawdzić sesję
+      router.refresh();
+    }
+  };
+
+  // Logowanie przez Google
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      toast.error("Błąd Google Auth: " + error.message);
     }
   };
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-hidden bg-[#121A1D]">
-      {/* ... dekoracyjne gradienty ... */}
+      {/* Dekoracyjne gradienty w tle */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#FB722C] blur-[150px] opacity-10 pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#9C2A0F] blur-[150px] opacity-10 pointer-events-none" />
 
       <div className="relative w-full max-w-md">
         <div className="bg-[#1E292D]/80 backdrop-blur-xl rounded-3xl border border-[#9C2A0F]/30 p-8 shadow-2xl">
@@ -73,6 +88,7 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Formularz Email / Hasło */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
@@ -130,26 +146,27 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Separator */}
           <div className="relative my-8 text-center">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-[#9C2A0F]/20"></div>
             </div>
             <span className="relative bg-[#1E292D] px-4 text-xs text-[#FAD3B1]/30 uppercase tracking-widest">
-              Lub kontynuuj przez
+              Lub
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
-            {[SiGithub, SiGoogle, SiFacebook, SiApple].map((Icon, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="flex items-center justify-center py-3 rounded-xl border border-[#9C2A0F]/40 hover:bg-[#FAD3B1]/5 transition-colors text-[#FAD3B1] group cursor-pointer"
-              >
-                <Icon className="h-5 w-5 opacity-60 group-hover:opacity-100 transition-opacity" />
-              </button>
-            ))}
-          </div>
+          {/* Nowy, pełnowymiarowy przycisk Google */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-[#9C2A0F]/40 hover:border-[#FB722C]/40 hover:bg-[#FB722C]/5 transition-all text-[#FAD3B1] group cursor-pointer"
+          >
+            <SiGoogle className="h-5 w-5 opacity-60 group-hover:opacity-100 group-hover:text-[#FB722C] transition-all" />
+            <span className="text-sm font-medium text-[#FAD3B1]/80 group-hover:text-[#FAD3B1] transition-colors">
+              Kontynuuj przez Google
+            </span>
+          </button>
 
           <p className="text-center text-[#FAD3B1]/50 text-sm mt-8">
             Nie masz konta?{" "}
