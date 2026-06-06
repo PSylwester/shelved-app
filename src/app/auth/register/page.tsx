@@ -1,18 +1,93 @@
-// src/app/auth/register/page.tsx
 "use client";
 
-import { BookOpen, Mail, Lock, User, ArrowRight } from "lucide-react";
-import {
-  SiGithub,
-  SiGoogle,
-  SiFacebook,
-  SiApple,
-} from "@icons-pack/react-simple-icons";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { toast } from "sonner";
+import { createClient } from "@/utils/supabase/client";
+import { BookOpen, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { SiGoogle } from "@icons-pack/react-simple-icons";
 import Link from "next/link";
 
+// 1. Definicja schematu walidacji
+const registerSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Nazwa użytkownika musi mieć min. 3 znaki")
+      .max(20, "Nazwa użytkownika jest za długa"),
+    email: z.string().email("Wprowadź poprawny adres email"),
+    password: z
+      .string()
+      .min(12, "Hasło musi mieć co najmniej 12 znaków")
+      .regex(/[A-Z]/, "Hasło musi mieć dużą literę")
+      .regex(/[0-9]/, "Hasło musi mieć cyfrę"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Hasła nie są identyczne",
+    path: ["confirmPassword"],
+  });
+
+type RegisterInput = z.infer<typeof registerSchema>;
+
 export default function RegisterPage() {
+  const supabase = createClient();
+
+  // 2. Inicjalizacja formularza
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+    mode: "onTouched", // Walidacja następuje przy opuszczeniu pola
+  });
+
+  // 3. Rejestracja tradycyjna (Email + Hasło)
+  const onSubmit = async (values: RegisterInput) => {
+    const { error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        data: {
+          display_name: values.username,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      toast.error("Błąd rejestracji", {
+        description: error.message,
+      });
+    } else {
+      toast.success("Konto utworzone pomyślnie!", {
+        description: "Sprawdź swoją skrzynkę e-mail, aby potwierdzić profil.",
+      });
+    }
+  };
+
+  // Rejestracja/Logowanie przez Google
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      toast.error("Błąd logowania przez Google: " + error.message);
+    }
+  };
+
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-hidden bg-[#121A1D]">
+    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-12 overflow-y-auto bg-[#121A1D]">
       {/* Background Gradients */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#FB722C] blur-[150px] opacity-10 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#9C2A0F] blur-[150px] opacity-10 pointer-events-none" />
@@ -28,6 +103,7 @@ export default function RegisterPage() {
             </span>
             Wróć do strony głównej
           </Link>
+
           <div className="text-center mb-8">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FB722C] text-[#121A1D] mb-4 shadow-lg shadow-[#FB722C]/20">
               <BookOpen className="h-6 w-6" />
@@ -38,8 +114,8 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <form className="space-y-4">
-            {/* Pole: Nazwa użytkownika */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Username */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Nazwa użytkownika
@@ -47,14 +123,23 @@ export default function RegisterPage() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
-                  type="text"
+                  {...register("username")}
                   placeholder="np. moleksiazkowy"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className={`w-full bg-[#121A1D]/50 border rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none transition-all ${
+                    errors.username
+                      ? "border-red-500/50"
+                      : "border-[#9C2A0F]/20 focus:border-[#FB722C]/50"
+                  }`}
                 />
               </div>
+              {errors.username && (
+                <p className="text-[10px] text-red-400 ml-1 italic">
+                  {errors.username.message}
+                </p>
+              )}
             </div>
 
-            {/* Pole: Email */}
+            {/* Email */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Email
@@ -62,14 +147,23 @@ export default function RegisterPage() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
-                  type="email"
+                  {...register("email")}
                   placeholder="twoj@email.com"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className={`w-full bg-[#121A1D]/50 border rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none transition-all ${
+                    errors.email
+                      ? "border-red-500/50"
+                      : "border-[#9C2A0F]/20 focus:border-[#FB722C]/50"
+                  }`}
                 />
               </div>
+              {errors.email && (
+                <p className="text-[10px] text-red-400 ml-1 italic">
+                  {errors.email.message}
+                </p>
+              )}
             </div>
 
-            {/* Pole: Hasło */}
+            {/* Password */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Hasło
@@ -77,14 +171,24 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  {...register("password")}
                   type="password"
                   placeholder="minimum 12 znaków"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className={`w-full bg-[#121A1D]/50 border rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none transition-all ${
+                    errors.password
+                      ? "border-red-500/50"
+                      : "border-[#9C2A0F]/20 focus:border-[#FB722C]/50"
+                  }`}
                 />
               </div>
+              {errors.password && (
+                <p className="text-[10px] text-red-400 ml-1 italic">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
-            {/* Pole: Powtórz Hasło */}
+            {/* Confirm Password */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-[#FB722C] uppercase tracking-widest ml-1">
                 Powtórz hasło
@@ -92,64 +196,60 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#FAD3B1]/30" />
                 <input
+                  {...register("confirmPassword")}
                   type="password"
                   placeholder="wpisz hasło ponownie"
-                  className="w-full bg-[#121A1D]/50 border border-[#9C2A0F]/20 rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none focus:border-[#FB722C]/50 transition-colors"
+                  className={`w-full bg-[#121A1D]/50 border rounded-xl py-3 pl-10 pr-4 text-[#FAD3B1] placeholder:text-[#FAD3B1]/20 focus:outline-none transition-all ${
+                    errors.confirmPassword
+                      ? "border-red-500/50"
+                      : "border-[#9C2A0F]/20 focus:border-[#FB722C]/50"
+                  }`}
                 />
               </div>
+              {errors.confirmPassword && (
+                <p className="text-[10px] text-red-400 ml-1 italic">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
             </div>
 
-            <div className="flex items-start gap-2 ml-1 pt-2">
-              <input
-                type="checkbox"
-                id="terms"
-                required
-                className="mt-1 w-4 h-4 rounded border-[#9C2A0F]/40 bg-[#121A1D]/50 text-[#FB722C] focus:ring-[#FB722C]/50 accent-[#FB722C] cursor-pointer"
-              />
-              <label
-                htmlFor="terms"
-                className="text-xs text-[#FAD3B1]/60 leading-snug cursor-pointer"
-              >
-                Akceptuję{" "}
-                <a href="#" className="text-[#FB722C] hover:underline">
-                  Regulamin
-                </a>{" "}
-                oraz{" "}
-                <a href="#" className="text-[#FB722C] hover:underline">
-                  Politykę prywatności
-                </a>{" "}
-                Shelved.
-              </label>
-            </div>
-
-            <button className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg shadow-[#FB722C]/10 hover:bg-[#FB722C]/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer">
-              Zarejestruj się
-              <ArrowRight className="h-4 w-4" />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#FB722C] text-[#121A1D] font-bold py-3 rounded-xl mt-4 shadow-lg shadow-[#FB722C]/10 hover:bg-[#FB722C]/90 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Zarejestruj się"
+              )}
+              {!isSubmitting && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
 
-          <div className="relative my-6 text-center">
+          {/* Separator */}
+          <div className="relative my-8 text-center">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-[#9C2A0F]/20"></div>
             </div>
             <span className="relative bg-[#1E292D] px-4 text-xs text-[#FAD3B1]/30 uppercase tracking-widest">
-              Lub przez
+              Lub
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
-            {[SiGithub, SiGoogle, SiFacebook, SiApple].map((Icon, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="flex items-center justify-center py-3 rounded-xl border border-[#9C2A0F]/40 hover:bg-[#FAD3B1]/5 transition-colors text-[#FAD3B1] group cursor-pointer"
-              >
-                <Icon className="h-5 w-5 opacity-60 group-hover:opacity-100 transition-opacity" />
-              </button>
-            ))}
-          </div>
+          {/* Pełnowymiarowy przycisk Google */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-[#9C2A0F]/40 hover:border-[#FB722C]/40 hover:bg-[#FB722C]/5 transition-all text-[#FAD3B1] group cursor-pointer"
+          >
+            <SiGoogle className="h-5 w-5 opacity-60 group-hover:opacity-100 group-hover:text-[#FB722C] transition-all" />
+            <span className="text-sm font-medium text-[#FAD3B1]/80 group-hover:text-[#FAD3B1] transition-colors">
+              Dołącz przez Google
+            </span>
+          </button>
 
-          <p className="text-center text-[#FAD3B1]/50 text-sm mt-6">
+          <p className="text-center text-[#FAD3B1]/50 text-sm mt-8">
             Masz już konto?{" "}
             <Link
               href="/auth"

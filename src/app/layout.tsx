@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import MainLayoutProxy from "@/components/layout/MainLayoutProxy"; // Importujemy proxy
 import "./globals.css";
-
+import { Toaster } from "sonner";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -31,7 +31,10 @@ export default function RootLayout({
     >
       <body className="antialiased bg-[#121A1D] text-[#FAD3B1] min-h-screen relative flex flex-col">
         {/* Proxy zajmie się wyświetlaniem Navbaru i Footeru zależnie od ścieżki */}
-        <MainLayoutProxy>{children}</MainLayoutProxy>
+        <MainLayoutProxy>
+          {children}
+          <Toaster position="top-right" richColors />
+        </MainLayoutProxy>
       </body>
     </html>
   );
